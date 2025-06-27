@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Image Gallery{% endblock %}</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
    <style>
         #slideshow { 
             margin: 0 auto; 
@@ -54,9 +56,36 @@
         </div>
         {% endif %}
         <script>
+            var socket = io();
+            var interval = '';
+
+            socket.emit("join", 'TV');
+
+            socket.on("message", function(data) {
+                clearInterval(interval);
+                var obj = JSON.parse(data);
+
+                var htmlFinal = "";
+                for(var i=0; i<obj.images.length; i++) {
+                    htmlFinal+= '<div class="picture" style="background-image: url(\'/static/uploads/'+ obj.images[i].filename +'\');"> </div>'
+                }
+
+                $("#slideshow").html(htmlFinal);
+                $("#slideshow > div:gt(0)").hide();
+
+                interval = setInterval(function() { 
+                    $('#slideshow > div:first')
+                    .fadeOut(1000)
+                    .next()
+                    .fadeIn(1000)
+                    .end()
+                    .appendTo('#slideshow');
+                }, 30*1000);
+            });
+                        
             $("#slideshow > div:gt(0)").hide();
 
-            setInterval(function() { 
+            interval = setInterval(function() { 
                 $('#slideshow > div:first')
                 .fadeOut(1000)
                 .next()

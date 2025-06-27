@@ -11,6 +11,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
 import json
+from flask_socketio import SocketIO, send, emit, join_room, leave_room
 
 # Configuration
 class Config:
@@ -22,6 +23,7 @@ class Config:
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
+socketio = SocketIO(app)
 
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -118,6 +120,13 @@ def upload_file():
                 save_gallery_data(gallery_data)
                 
                 flash(f'Image "{image_data["title"]}" uploaded successfully!', 'success')
+
+                gallery_data = load_gallery_data()
+                images = jsonify(gallery_data).json
+                meta = "new_image_loaded"
+                res = {'images': images, 'meta': meta}
+                emit("message", json.dumps(res) , broadcast=True, namespace='/')  # Send to everyone
+
                 return redirect(url_for('index'))
                 
             except Exception as e:
@@ -158,11 +167,17 @@ def delete_image(image_id):
             save_gallery_data(gallery_data)
             
             flash(f'Image "{image["title"]}" deleted successfully!', 'success')
+    
+            gallery_data = load_gallery_data()
+            images = jsonify(gallery_data).json
+            meta = "new_image_loaded"
+            res = {'images': images, 'meta': meta}
+            emit("message", json.dumps(res) , broadcast=True, namespace='/')  # Send to everyone
         except Exception as e:
             flash(f'Error deleting image: {str(e)}', 'error')
     else:
         flash('Image not found', 'error')
-    
+
     return redirect(url_for('index'))
 
 @app.route('/api/gallery')
@@ -203,6 +218,11 @@ def datetime_format(date_string):
     except:
         return date_string
 
+@socketio.on('join')
+def handle_join(username):
+    join_room(username)  # Each user gets their own "room"
+    #emit("message", "{'meta': 'none'}", room=username)
+
 if __name__ == '__main__':
     # Create some sample data if none exists
     if not load_gallery_data():
@@ -219,4 +239,4 @@ if __name__ == '__main__':
         ]
         save_gallery_data(sample_data)
     
-    app.run(debug=True, host='0.0.0.0', port=6000)
+    app.run(debug=True, host='0.0.0.0', port=8000)
